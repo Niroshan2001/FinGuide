@@ -10,8 +10,8 @@ from langchain.prompts import ChatPromptTemplate
 from langchain import HuggingFaceHub
 from langchain.schema.runnable import RunnablePassthrough
 from langchain.schema.output_parser import StrOutputParser
-import streamlit as st
-import plotly.express as px
+from flask import Flask, jsonify, request
+from flask_cors import CORS
 
 load_dotenv()
 HUGGINGFACEHUB_API_TOKEN = os.getenv("HUGGING_FACE_API_KEY")
@@ -76,6 +76,9 @@ class FinGuide:
     def answer_question(self, question: str) -> str:
         return self.rag_chain.invoke(question).split("Answer:")[-1]
 
+    def load_predicted_rates(self, file_path: str) -> pd.DataFrame:
+        return pd.read_csv(file_path)
+
     def generate_investment_advice(self, rates_df: pd.DataFrame) -> str:
         context = rates_df.to_string(index=False)
         question = "Based on the predicted future interest rates, what is the best time for investors to invest in treasury bills and bonds? Please provide some advice."
@@ -87,94 +90,42 @@ class FinGuide:
         
         return self.answer_question(formatted_prompt)
 
-@st.cache_resource
-def initialize_fin_guide():
-    fin_guide = FinGuide()
-    data = fin_guide.load_data()
-    fin_guide.process_text(data)
-    fin_guide.create_embeddings_and_index()
-    fin_guide.setup_llm()
-    fin_guide.setup_rag_chain()
-    return fin_guide
+app = Flask(__name__)
+CORS(app)
 
-def main():
-    st.set_page_config(page_title="FinGuide Q&A", page_icon="💰", layout="wide")
+# Initialize FinGuide instance
+fin_guide = FinGuide()
 
-    st.markdown("""
-    <style>
-        .reportview-container {
-            background: #f0f2f6
-        }
-        .main {
-            background: #ffffff;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .stButton>button {
-            background-color: #4CAF50;
-            color: white;
-            font-weight: bold;
-            border: none;
-            border-radius: 5px;
-            padding: 0.5rem 1rem;
-        }
-        h1 {
-            color: #0077b6;
-        }
-        label {
-            color: black !important;
-            font-weight: bold;
-        }
-        .subheader {
-            color: #023e8a;
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 1rem;
-        }
-        .stTextInput>div>div>input {
-            border-radius: 5px;
-        }
-        .stAlert, .stMarkdown {
-            color: black !important;
-        }
-    </style>
-    """, unsafe_allow_html=True)
+# Load data and process it once on startup
+data = fin_guide.load_data()
+fin_guide.process_text(data)
+fin_guide.create_embeddings_and_index()
+fin_guide.setup_llm()
+fin_guide.setup_rag_chain()
 
-    st.title("🏦 FinGuide Q&A")
-    st.markdown('<h2 class="subheader">Your AI-powered Financial Assistant</h2>', unsafe_allow_html=True)
+@app.route('/')
+def home():
+    return jsonify(message="Welcome to FinGuide API"), 200
 
-    fin_guide = initialize_fin_guide()
-
-    question = st.text_input("Ask a question about treasury bills, bonds, or financial markets:")
+@app.route("/answer", methods=["POST"])
+def answer_question():
+    question = request.json.get("question")
+    if not question:
+        return jsonify({"error": "No question provided"}), 400
     
-    if st.button("Get Answer"):
-        if question:
-            with st.spinner(":blue[Thinking...]"):
-                answer = fin_guide.answer_question(question)
-            st.markdown(f'<div class="stMarkdown" style="color:black;">{answer}</div>', unsafe_allow_html=True)
-        else:
-            st.warning("Please enter a question.")
+    answer = fin_guide.answer_question(question)
+    return jsonify({"answer": answer})
 
-    st.markdown("---")
-
-    st.subheader(":blue[Get Investment Advice]")
-    uploaded_file = st.file_uploader("Upload your CSV file with predicted rates", type="csv")
+@app.route("/investment_advice", methods=["POST"])
+def generate_investment_advice():
+    file_path = request.json.get("file_path")
+    if not file_path:
+        return jsonify({"error": "No file path provided"}), 400
     
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-        st.write("Preview of uploaded data:")
-        st.dataframe(df.head())
-
-        if st.button("Generate Investment Advice"):
-            with st.spinner("Analyzing data and generating advice..."):
-                advice = fin_guide.generate_investment_advice(df)
-            st.success("Investment Advice:")
-            st.write(advice)
-
-            st.subheader("Visualization of Predicted Rates")
-            fig = px.line(df, x=df.columns[0], y=df.columns[1:], title="Predicted Interest Rates Over Time")
-            st.plotly_chart(fig)
+    rates_df = fin_guide.load_predicted_rates(file_path)
+    advice = fin_guide.generate_investment_advice(rates_df)
+    
+    return jsonify({"advice": advice})
 
 if __name__ == "__main__":
-    main()
+    app.run(host="0.0.0.0", port=4000)
