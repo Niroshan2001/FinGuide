@@ -12,4 +12,4 @@ python-dotenv==1.0.1
 requests==2.31.0
 sentence-transformers==3.1.1
 streamlit==1.37.1
-langchain-community==0.3.3
+langchain-community==0.3.1
