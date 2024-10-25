@@ -58,7 +58,7 @@ class FinGuide:
         )
 
     def setup_rag_chain(self):
-        template = """You are an assistant for a financial institution. Use the following information to answer the questions. If you don't know the answer, just say that you don't know. Use 10 sentences maximum to answer each question and keep the answer concise.
+        template = """You are an assistant for a financial institution. Use the following information to answer the questions. If you don't know the answer, just say that you don't know. Use 300 words maximum paragraph to answer each question and keep the answer concise.
         Question: {question}
         Context: {context}
         Answer: """
@@ -87,7 +87,7 @@ class FinGuide:
 
     def generate_investment_advice(self, rates_df: pd.DataFrame) -> str:
         context = rates_df.to_string(index=False)
-        question = "Based on the predicted future interest rates, what is the best time for investors to invest in treasury bills and bonds? Please provide some advice."
+        question = "Based on the predicted future interest rates, what is the best time for investors to invest in treasury bills and bonds? Please provide some advice.use 300 words maximum paragraph to answer "
         
         formatted_prompt = f"""
         Context: {context}
