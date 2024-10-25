@@ -93,8 +93,15 @@ class FinGuide:
         Context: {context}
         Question: {question}
         """
-        
-        return self.answer_question(formatted_prompt)
+        full_response=self.answer_question(formatted_prompt)
+        answer = full_response.split("Answer:")[-1].strip()
+        # Split the answer into sentences
+        sentences = answer.split(".")
+        # Remove the last sentence if it is not finished
+        if not sentences[-1].strip():
+            sentences = sentences[:-1]
+        final_answer = ".".join(sentences).strip()
+        return final_answer
 
 @st.cache_resource
 def initialize_fin_guide():
