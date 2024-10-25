@@ -77,7 +77,12 @@ class FinGuide:
         full_response = self.rag_chain.invoke(question)
         # Remove any "Answer:" prefix if present
         answer = full_response.split("Answer:")[-1].strip()
-        final_answer=answer.split(".")[:-1]
+        # Split the answer into sentences
+        sentences = answer.split(".")
+        # Remove the last sentence if it is not finished
+        if not sentences[-1].strip():
+            sentences = sentences[:-1]
+        final_answer = ".".join(sentences).strip()
         return final_answer
 
     def generate_investment_advice(self, rates_df: pd.DataFrame) -> str:
